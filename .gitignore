@@ -1,0 +1,8 @@
+.DS_Store
+node_modules/
+*.log
+
+# Local-only overrides — keep your machine-specific config out of git.
+.claude/settings.local.json
+.codex/config.local.toml
+.opencode/local/

@@ -1,0 +1,43 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "POCKET_AGENT=codex bash \"$(git rev-parse --show-toplevel)/hooks/log.sh\"",
+            "timeout": 10,
+            "statusMessage": "pocket: logging tool use"
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "POCKET_AGENT=codex bash \"$(git rev-parse --show-toplevel)/hooks/log.sh\"",
+            "timeout": 10,
+            "statusMessage": "pocket: logging permission request"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "POCKET_AGENT=codex bash \"$(git rev-parse --show-toplevel)/hooks/log.sh\"",
+            "timeout": 10,
+            "statusMessage": "pocket: logging tool result"
+          }
+        ]
+      }
+    ]
+  }
+}
