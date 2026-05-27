@@ -96,7 +96,8 @@ cmd_find() {
   fi
   grep -rl --include='*.jsonl' -- "$pattern" "$CHATS" 2>/dev/null | while IFS= read -r f; do
     [ -z "$f" ] && continue
-    local base="$(basename "$f")"
+    local base
+    base="$(basename "$f")"
     echo "── $base ──"
     grep -n -- "$pattern" "$f" || true
     echo
