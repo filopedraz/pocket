@@ -1,14 +1,10 @@
 #!/usr/bin/env bash
 # pocket — bring your own memory across CLI agents.
 #
-# Sub-commands:
-#   recent [N]        Last N sessions (default 10).
-#   find <pattern>    Grep across chats/.
-#   show <sessionId>  Pretty-print one session.
-#   tail              Follow the most recently modified session.
-#   doctor            Check deps + repo layout.
-#
-# Reads from $POCKET_ROOT (defaults to the git toplevel of $PWD).
+# Thin shim over the TypeScript CLI at cli/src/index.ts. Prefers the
+# compiled single-file binary (cli/dist/pocket, built with `bun run build`)
+# and falls back to `bun run cli/src/index.ts` for dev. The same agent-
+# facing surface as before — see `pocket help`.
 
 set -euo pipefail
 
@@ -21,167 +17,28 @@ resolve_root() {
     git rev-parse --show-toplevel
     return
   fi
-  printf '%s\n' "$PWD"
+  # Fall back to the parent of bin/.
+  cd "$(dirname "$0")/.." && pwd
 }
 
 ROOT="$(resolve_root)"
-CHATS="$ROOT/chats"
+export POCKET_ROOT="$ROOT"
 
-require_jq() {
-  if ! command -v jq >/dev/null 2>&1; then
-    echo "pocket: jq is required (brew install jq)" >&2
-    exit 2
-  fi
-}
+COMPILED="$ROOT/cli/dist/pocket"
+ENTRY="$ROOT/cli/src/index.ts"
 
-usage() {
-  cat <<'EOF'
-pocket — bring your own memory across CLI agents
+if [ -x "$COMPILED" ]; then
+  exec "$COMPILED" "$@"
+fi
 
-usage: pocket <command> [args]
+if ! command -v bun >/dev/null 2>&1; then
+  echo "pocket: bun is required (https://bun.sh)" >&2
+  exit 2
+fi
 
-commands:
-  recent [N]        last N sessions (default 10)
-  find <pattern>    grep across chats/
-  show <sessionId>  pretty-print one session
-  tail              follow the most recently modified session
-  doctor            check dependencies and layout
-EOF
-}
+if [ ! -f "$ENTRY" ]; then
+  echo "pocket: missing cli/src/index.ts at $ENTRY" >&2
+  exit 2
+fi
 
-cmd_recent() {
-  require_jq
-  local n="${1:-10}"
-  if [ ! -d "$CHATS" ]; then
-    echo "pocket: no chats/ directory at $CHATS" >&2
-    exit 1
-  fi
-
-  local files
-  files="$(find "$CHATS" -maxdepth 1 -type f -name '*.jsonl' -print0 2>/dev/null \
-    | xargs -0 stat -f '%m %N' 2>/dev/null \
-    | sort -rn \
-    | head -n "$n" \
-    | awk '{ $1=""; sub(/^ /,""); print }')"
-
-  if [ -z "$files" ]; then
-    echo "pocket: no sessions in $CHATS yet" >&2
-    return 0
-  fi
-
-  printf '%-12s  %-9s  %-24s  %s\n' DATE AGENT SESSION FIRST_EVENT
-  while IFS= read -r f; do
-    [ -z "$f" ] && continue
-    local base date agent session first
-    base="$(basename "$f" .jsonl)"
-    date="${base%%_*}"
-    local rest="${base#*_}"
-    agent="${rest%%_*}"
-    session="${rest#*_}"
-    first="$(head -n 1 "$f" 2>/dev/null | jq -r '.log_event // .hook_event_name // "?"' 2>/dev/null || echo "?")"
-    printf '%-12s  %-9s  %-24s  %s\n' "$date" "$agent" "$session" "$first"
-  done <<<"$files"
-}
-
-cmd_find() {
-  require_jq
-  if [ $# -eq 0 ]; then
-    echo "pocket: find requires a pattern" >&2
-    exit 2
-  fi
-  local pattern="$1"
-  if [ ! -d "$CHATS" ]; then
-    echo "pocket: no chats/ directory at $CHATS" >&2
-    exit 1
-  fi
-  grep -rl --include='*.jsonl' -- "$pattern" "$CHATS" 2>/dev/null | while IFS= read -r f; do
-    [ -z "$f" ] && continue
-    local base
-    base="$(basename "$f")"
-    echo "── $base ──"
-    grep -n -- "$pattern" "$f" || true
-    echo
-  done
-}
-
-cmd_show() {
-  require_jq
-  if [ $# -eq 0 ]; then
-    echo "pocket: show requires a sessionId" >&2
-    exit 2
-  fi
-  local sid="$1"
-  local matches
-  matches="$(find "$CHATS" -maxdepth 1 -type f -name "*_${sid}.jsonl" 2>/dev/null | head -n 5)"
-  if [ -z "$matches" ]; then
-    echo "pocket: no session matching '$sid'" >&2
-    exit 1
-  fi
-  while IFS= read -r f; do
-    [ -z "$f" ] && continue
-    echo "── $(basename "$f") ──"
-    jq '.' "$f"
-  done <<<"$matches"
-}
-
-cmd_tail() {
-  if [ ! -d "$CHATS" ]; then
-    echo "pocket: no chats/ directory at $CHATS" >&2
-    exit 1
-  fi
-  local latest
-  latest="$(find "$CHATS" -maxdepth 1 -type f -name '*.jsonl' -print0 2>/dev/null \
-    | xargs -0 stat -f '%m %N' 2>/dev/null \
-    | sort -rn \
-    | head -n 1 \
-    | awk '{ $1=""; sub(/^ /,""); print }')"
-  if [ -z "$latest" ]; then
-    echo "pocket: no sessions yet" >&2
-    exit 1
-  fi
-  echo "── tailing $(basename "$latest") ──" >&2
-  tail -F "$latest"
-}
-
-cmd_doctor() {
-  local ok=1
-  printf 'root:      %s\n' "$ROOT"
-  printf 'chats:     %s\n' "$CHATS"
-
-  if command -v jq >/dev/null 2>&1; then
-    printf 'jq:        %s\n' "$(jq --version)"
-  else
-    printf 'jq:        MISSING (brew install jq)\n'
-    ok=0
-  fi
-
-  for f in hooks/log.sh .claude/settings.json .codex/hooks.json .opencode/plugins/pocket-log.js memory/general.md; do
-    if [ -e "$ROOT/$f" ]; then
-      printf 'ok:        %s\n' "$f"
-    else
-      printf 'missing:   %s\n' "$f"
-      ok=0
-    fi
-  done
-
-  [ "$ok" -eq 1 ] || exit 1
-}
-
-main() {
-  if [ $# -eq 0 ]; then
-    usage
-    exit 0
-  fi
-  local cmd="$1"; shift
-  case "$cmd" in
-    recent) cmd_recent "$@" ;;
-    find)   cmd_find "$@" ;;
-    show)   cmd_show "$@" ;;
-    tail)   cmd_tail "$@" ;;
-    doctor) cmd_doctor "$@" ;;
-    -h|--help|help) usage ;;
-    *) echo "pocket: unknown command '$cmd'" >&2; usage; exit 2 ;;
-  esac
-}
-
-main "$@"
+exec bun run "$ENTRY" "$@"

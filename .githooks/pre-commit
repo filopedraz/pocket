@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# pre-commit: keep CLAUDE.md in sync with AGENTS.md.
+#
+# If AGENTS.md is staged for this commit, copy it to CLAUDE.md and stage
+# the copy. Silent no-op when AGENTS.md isn't touched. Aborts the commit
+# only if the copy itself fails.
+#
+# Enable once per clone:
+#   git config core.hooksPath .githooks
+
+set -euo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+
+if ! git diff --cached --name-only | grep -qx 'AGENTS.md'; then
+  exit 0
+fi
+
+if ! cp AGENTS.md CLAUDE.md; then
+  echo "pre-commit: failed to copy AGENTS.md → CLAUDE.md" >&2
+  exit 1
+fi
+
+git add CLAUDE.md
+echo "pre-commit: synced CLAUDE.md ← AGENTS.md"

@@ -1,0 +1,19 @@
+{
+  "name": "@pocket/cli",
+  "version": "0.0.1",
+  "description": "pocket — bring your own memory across CLI agents",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "bun run src/index.ts",
+    "build": "bun run build.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "bunx biome check .",
+    "lint:fix": "bunx biome check --write ."
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.12",
+    "@types/bun": "latest",
+    "typescript": "^5.8.0"
+  }
+}

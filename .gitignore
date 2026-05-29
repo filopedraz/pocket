@@ -2,6 +2,17 @@
 node_modules/
 *.log
 
+# Secrets — never commit.
+.env
+.env.local
+
+# Personal memory and session history stay local. Only the folder marker
+# is tracked so a fresh clone still has somewhere to write.
+chats/*
+!chats/.gitkeep
+memory/*
+!memory/.gitkeep
+
 # Local-only overrides — keep your machine-specific config out of git.
 .claude/settings.local.json
 .codex/config.local.toml
