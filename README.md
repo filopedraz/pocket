@@ -1,30 +1,47 @@
 # pocket
 
-> Bring your own memory. Switch CLI agents without losing context.
+> A self-extending CLI agent.
+> It grows its own tools.
+> It remembers you across vendors.
 
-A folder. Some hooks. A tiny TypeScript CLI. Three CLI agents wired in.
-No daemon, no SaaS, no lock-in.
+A folder. Some hooks. A tiny TypeScript CLI. When the agent needs a
+capability it doesn't have, it writes the command into
+`cli/src/commands/` and uses it on the next run. When the session ends,
+a subagent updates `memory/general.md` with what was durable. Switch
+from Claude to Codex to OpenCode tomorrow — the folder doesn't move.
 
 ## Why
 
-Desktop apps and web chats lock your conversations inside a single vendor.
-Hit the rate limit on Claude and your context is stuck there. Burn through
-your Codex credits and you start the next session from zero. Switch
-providers and yesterday's reasoning is gone.
+Most "AI memory" tools are read-only state you pour into a vendor's
+context window. They don't change what the agent can do; they just give
+it more to read. And when that vendor rate-limits you or your credits
+run out, the memory is stuck inside their walls.
 
-`pocket` flips it. One repo. One folder of markdown about you. One folder
-of conversation logs. Every CLI agent reads from the same place and writes
-back to the same place. Switching providers is just changing which binary
-you type.
+`pocket` is the other shape. Two things live in this repo:
 
-The setup:
+1. **What the agent knows about you** — `memory/general.md`. Small,
+   durable, refreshed at the end of each session by a subagent that
+   reads the transcript and proposes a diff.
+2. **What the agent can do** — `cli/src/commands/`. Every time the agent
+   hits a task it can't do directly, the rule in `AGENTS.md` tells it
+   to spawn a subagent, implement a new `bin/pocket <command>`, and add
+   it to the toolset. Next session it just calls the command.
 
-- **`memory/general.md`** — what an agent should know about you. Durable,
-  small, human-edited. Created from a template by `bin/pocket init`.
-- **`chats/`** — every session, every agent, one JSONL file each.
-  Populated automatically by hooks. Local-only by default.
-- **`bin/pocket`** — TypeScript CLI: `init`, `recent`, `find`, `show`,
-  `tail`, `doctor`.
+Both are plain files in a git repo. Every supported CLI agent
+(`claude`, `codex`, `opencode`) reads them at session start and writes
+back to them on the way out, via pre-wired hooks. Switching providers is
+changing which binary you type.
+
+The pieces:
+
+- **`memory/general.md`** — what an agent should know about you.
+  Durable, small. Created from a template by `bin/pocket init`; refreshed
+  by a subagent at the end of each substantive session.
+- **`cli/src/commands/`** — the agent's growing toolset. One TypeScript
+  file per subcommand; the agent appends here through subagents.
+- **`chats/`** — every session, every agent, one JSONL file each. Local
+  by default. Populated automatically by hooks; queryable via
+  `bin/pocket recent / find / show / tail`.
 
 ## Quickstart
 
@@ -85,19 +102,34 @@ then writes one JSONL line to `chats/<date>_<agent>_<sessionId>.jsonl`.
 Claude Code and Codex both call it directly. OpenCode runs the same logic
 inside its JS plugin (their plugin API doesn't shell out).
 
-**3. Retrieval.** `bin/pocket` is a Bun-runtime TypeScript CLI in `cli/`.
+**3. Toolset.** `bin/pocket` is a Bun-runtime TypeScript CLI in `cli/`.
 Each subcommand lives at `cli/src/commands/<name>.ts` — adding one means
-dropping a file and a single dispatcher case. See AGENTS.md for the full
-contract.
+dropping a file and a single dispatcher case. This is both how *you*
+query the chat history (`recent`, `find`, `show`, `tail`) and how the
+*agent* grows its own capabilities over time. See AGENTS.md for the
+full contract.
 
-## Self-recursive
+## How the agent extends itself
 
-Agents working in this repo are told (via `AGENTS.md`) to extend the
-pocket CLI by spawning subagents — both for implementing unfamiliar
-commands and for researching whether a library already does the job.
-That keeps the main chat lean and lets the toolset grow without
-context bloat. You don't have to opt in; any agent reading
-`memory/general.md` at session start picks up the rule.
+The self-extension loop lives in `AGENTS.md` (mirrored to `CLAUDE.md`),
+which every supported agent reads at session start. The rules, in
+order:
+
+1. **Read `memory/general.md`** to know who you are.
+2. **Hit a task you can't do directly?** Spawn a subagent to either
+   research a library that already does it, or implement a new
+   `cli/src/commands/<name>.ts` end-to-end. The new command shows up
+   in `bin/pocket <name>` on the very next run.
+3. **Need an API key?** Tell the human which one, link the page, ask
+   them to paste it, and append `KEY=value` to `.env` — `.env.example`
+   gets the mirrored variable name.
+4. **End of session?** Spawn a subagent that reads the transcript and
+   proposes a minimal diff to `memory/general.md`. Apply, end the turn.
+
+You don't opt in — any agent that reads `AGENTS.md` picks up the rules.
+The point is that the toolset and the memory both grow on their own
+without the main chat carrying the weight of research, refactoring, or
+re-reading transcripts.
 
 ## Supported agents
 
