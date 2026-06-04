@@ -17,3 +17,5 @@ memory/*
 .claude/settings.local.json
 .codex/config.local.toml
 .opencode/local/
+contacts.json
+todos.md

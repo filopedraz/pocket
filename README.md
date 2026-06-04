@@ -65,6 +65,10 @@ bin/pocket show <sessionId>    # pretty-print one session
 | `bin/pocket show <sessionId>` | Pretty-print every JSONL line of the matching session. |
 | `bin/pocket tail` | Follow the most recently modified session file. |
 | `bin/pocket doctor` | Verify bun is installed and every agent's hook plumbing is in place. |
+| `bin/pocket slack "<msg>" --to <dest>` | Send a message to Slack via `chat.postMessage`. `<dest>` is a channel ID/name (`#general`) or user ID (`U…`); falls back to `SLACK_DEFAULT_CHANNEL`. Needs `SLACK_BOT_TOKEN` in `.env`. |
+| `bin/pocket email "<body>" --to <addr> [--subject "<s>"] [--cc <addr>] [--bcc <addr>]` | Send an email via Gmail SMTP (`smtp.gmail.com:465`). Needs `GMAIL_USER` and `GMAIL_APP_PASSWORD` ([App Password](https://myaccount.google.com/apppasswords)) in `.env`. |
+| `bin/pocket briefing [--to <dest>] [--dry-run]` | Compose a short Italian morning briefing from the `## Oggi` section of repo-root `todos.md` and post it to Slack. `<dest>` falls back to `SLACK_BRIEFING_TARGET` then a self-DM default; `--dry-run` prints the briefing instead of posting. Needs a Slack token in `.env`. |
+| `bin/pocket notion tickets [--all] [--json]` | List open tickets from the "M&S Tickets" Notion database, sorted by priority then due date. Defaults to your own tickets; `--all` shows everyone's; `--json` prints raw JSON. Needs `NOTION_TOKEN` and `NOTION_TICKETS_DB` (and `NOTION_USER_ID` for the default scope) in `.env`. |
 | `bin/pocket help` | Print the live command list. |
 
 This table is the source of truth. New commands land here in the same PR
