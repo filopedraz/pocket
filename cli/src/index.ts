@@ -34,6 +34,10 @@ commands:
   show <sessionId>  pretty-print one session
   tail              follow the most recently modified session
   doctor            check dependencies and layout
+  slack "<msg>" --to <dest>  post a message to Slack via chat.postMessage
+  email "<body>" --to <addr> [--subject ...]  send an email via Gmail SMTP
+  briefing [--to <dest>] [--dry-run]   send the daily to-do briefing to Slack
+  notion tickets [--all] [--json]   list open Notion tickets
   help              show this message
   version           print version
 `;
@@ -43,6 +47,14 @@ async function main() {
 
   switch (command) {
     // >>> add new commands above this line <<<
+    case "notion":
+      return (await import("./commands/notion")).run();
+    case "briefing":
+      return (await import("./commands/briefing")).run();
+    case "email":
+      return (await import("./commands/email")).run();
+    case "slack":
+      return (await import("./commands/slack")).run();
     case "init":
       return (await import("./commands/init")).run();
     case "recent":
